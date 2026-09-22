@@ -2,15 +2,15 @@ name: Build Lambda Wars
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, develop]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, develop]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     
     env:
       SOLUTION_FILE: src/lambdawars.sln
@@ -23,22 +23,36 @@ jobs:
       with:
         submodules: recursive
     
-    - name: Setup Visual Studio 2013
+    - name: Install Visual Studio 2013 Build Tools
+      run: |
+        # Install VS2013 Build Tools via Chocolatey
+        choco install visualstudio2013buildtools -y --version 12.0.21005.1
+        refreshenv
+        
+        # Also install Windows SDK 8.1 (required for VS2013)
+        choco install windows-sdk-8.1 -y
+        refreshenv
+      shell: powershell
+    
+    - name: Setup MSVC Developer Command Prompt
       uses: ilammy/msvc-dev-cmd@v1
       with:
         vsversion: 2013
-        architecture: x86
+        arch: x86
+        sdk: 8.1
     
     - name: Install Python 2.7 (required for build)
       run: |
         choco install python2 -y --version 2.7.18
         refreshenv
+      shell: powershell
     
     - name: Verify build environment
       run: |
         echo "Visual Studio: $(devenv.com /?)"
         echo "Python: $(python --version)"
         echo "MSBuild: $(msbuild /?)"
+      shell: powershell
     
     - name: Restore NuGet packages (if any)
       run: |
@@ -54,9 +68,9 @@ jobs:
           /p:Platform=${{ env.PLATFORM }} `
           /p:TargetFrameworkVersion=v4.0 `
           /p:VisualStudioVersion=12.0 `
+          /p:WindowsTargetPlatformVersion=8.1 `
           /m `
-          /verbosity:minimal `
-          /logger:"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\MSBuild\MSBuildLogger.dll"
+          /verbosity:minimal
       shell: powershell
       continue-on-error: false
     
