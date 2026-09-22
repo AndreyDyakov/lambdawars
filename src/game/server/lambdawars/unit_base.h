@@ -1,4 +1,4 @@
-//====== Copyright © Sandern Corporation, All rights reserved. ===========//
+//====== Copyright ï¿½ Sandern Corporation, All rights reserved. ===========//
 //
 // Purpose:		Base Unit
 //
@@ -12,6 +12,9 @@
 #endif
 
 #include "npcevent.h"
+
+// Forward declaration
+class HL2StyleBehavior;
 
 class CUnitBase;
 

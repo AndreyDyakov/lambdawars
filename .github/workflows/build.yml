@@ -1,0 +1,123 @@
+name: Build Lambda Wars
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    
+    env:
+      SOLUTION_FILE: src/lambdawars.sln
+      CONFIGURATION: Release
+      PLATFORM: Win32
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Setup Visual Studio 2013
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        vsversion: 2013
+        architecture: x86
+    
+    - name: Install Python 2.7 (required for build)
+      run: |
+        choco install python2 -y --version 2.7.18
+        refreshenv
+    
+    - name: Verify build environment
+      run: |
+        echo "Visual Studio: $(devenv.com /?)"
+        echo "Python: $(python --version)"
+        echo "MSBuild: $(msbuild /?)"
+    
+    - name: Restore NuGet packages (if any)
+      run: |
+        if (Test-Path "src/.nuget/NuGet.exe") {
+          & "src/.nuget/NuGet.exe" restore "src/lambdawars.sln"
+        }
+      shell: powershell
+    
+    - name: Build Solution
+      run: |
+        msbuild "src/lambdawars.sln" `
+          /p:Configuration=${{ env.CONFIGURATION }} `
+          /p:Platform=${{ env.PLATFORM }} `
+          /p:TargetFrameworkVersion=v4.0 `
+          /p:VisualStudioVersion=12.0 `
+          /m `
+          /verbosity:minimal `
+          /logger:"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\MSBuild\MSBuildLogger.dll"
+      shell: powershell
+      continue-on-error: false
+    
+    - name: Collect build artifacts
+      run: |
+        $artifacts = @()
+        $artifacts += Get-ChildItem -Path "src/game/server" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue
+        $artifacts += Get-ChildItem -Path "src/game/client" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue
+        $artifacts += Get-ChildItem -Path "src/game/shared" -Recurse -Filter "*.dll" -ErrorAction SilentlyContinue
+        
+        if ($artifacts.Count -gt 0) {
+          $dest = "build_artifacts"
+          New-Item -ItemType Directory -Force -Path $dest
+          foreach ($file in $artifacts) {
+            Copy-Item $file.FullName -Destination $dest -Force
+          }
+          Write-Host "Found $($artifacts.Count) DLL(s)"
+        } else {
+          Write-Warning "No DLLs found!"
+        }
+      shell: powershell
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: lambdawars-build-${{ github.sha }}
+        path: build_artifacts/
+        retention-days: 30
+        if-no-files-found: warn
+    
+    - name: Upload build logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: lambdawars-build-logs-${{ github.sha }}
+        path: |
+          **/*.log
+          **/BuildLog.*
+        retention-days: 7
+        if-no-files-found: ignore
+
+  # Optional: Test build on Linux (for Python scripts only)
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Check Python syntax
+        run: |
+          find src -name "*.py" -exec python3 -m py_compile {} \;
+      
+      - name: Run basic checks
+        run: |
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src/game/shared/lambdawars')
+          import unit_hl2_behavior
+          print('Python module loads OK')
+          "

@@ -137,27 +137,29 @@ private:
 //=============================================================================
 //
 //	class CUnitBase
-//
-//=============================================================================
-#ifdef CLIENT_DLL
-class CUnitBase : public CBaseCombatCharacter, public IUnit
-#else
-class CUnitBase : public CBaseCombatCharacter, public CAI_ExpresserSink, public IUnit
-#endif // CLIENT_DLL
-{
-	DECLARE_CLASS( CUnitBase, CBaseCombatCharacter );
 public:
 	friend class UnitBaseLocomotion;
 	friend class UnitBaseNavigator;
 	friend class UnitBaseSense;
 
-	//-----------------------------------------------------
-	//
-	// Initialization, cleanup
-	//
-
-	CUnitBase();
-	~CUnitBase();
+	// HL2 Style AI Behavior
+	HL2StyleBehavior* m_pHL2Behavior;
+	
+	void InitHL2Behavior();
+	void UpdateHL2Behavior(float dt);
+	void ShutdownHL2Behavior();
+	
+	// HL2 Commands
+	void Command_HL2Cover(const CCommand& args);
+	void Command_HL2Peek(const CCommand& args);
+	void Command_HL2BlindFire(const CCommand& args);
+	void Command_HL2Flank(const CCommand& args);
+	void Command_HL2Suppress(const CCommand& args);
+	void Command_HL2Retreat(const CCommand& args);
+	void Command_HL2Hold(const CCommand& args);
+	
+	// HL2 Behavior accessor
+	HL2StyleBehavior* GetHL2Behavior() { return m_pHL2Behavior; }
 
 	virtual void		UpdateOnRemove( void );
 

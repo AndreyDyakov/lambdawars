@@ -1,4 +1,4 @@
-//====== Copyright © Sandern Corporation, All rights reserved. ===========//
+//====== Copyright ï¿½ Sandern Corporation, All rights reserved. ===========//
 //
 // Purpose: 
 //
@@ -546,19 +546,38 @@ void CUnitBase::Spawn( void )
 	// If owernumber wasn't changed yet, trigger on change once
 	if( GetOwnerNumber() == 0 )
 		OnChangeOwnerNumber(0);
+
+	// Initialize HL2 Behavior
+	if (!m_pHL2Behavior)
+	{
+		m_pHL2Behavior = new HL2StyleBehavior(this);
+		m_pHL2Behavior->SetupHL2Behaviors();
+	}
 }
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-bool CUnitBase::KeyValue( const char *szKeyName, const char *szValue )
+void CUnitBase::KeyValue( const char *szKeyName, const char *szValue )
 {
 	if ( FStrEq( szKeyName, "unittype" ) )
 	{
-		SetUnitType( szValue );
+		SetUnitType( szKeyName );
 		return true;
 	}
 	return BaseClass::KeyValue( szKeyName, szValue );
+}
+
+// Destructor
+CUnitBase::~CUnitBase()
+{
+	if (m_pHL2Behavior)
+	{
+		delete m_pHL2Behavior;
+		m_pHL2Behavior = nullptr;
+	}
+	
+	BaseClass::~CBaseCombatCharacter();
 }
 
 //-----------------------------------------------------------------------------
@@ -650,7 +669,10 @@ void CUnitBase::SetUnitType( const char *unit_type )
 void CUnitBase::UpdateServerAnimation( void )
 {
 	VPROF_BUDGET( "CUnitBase::UpdateServerAnimation", VPROF_BUDGETGROUP_UNITS );
-
+	
+	// Update HL2 behavior
+	UpdateHL2Behavior(gpGlobals->frametime);
+	
 	if( !GetAnimState() )
 		return;
 
@@ -840,7 +862,10 @@ void CUnitBase::DispatchEnemyLost( void )
 void CUnitBase::UpdateEnemy( UnitBaseSense &senses )
 {
 	VPROF_BUDGET( "CUnitBase::UpdateEnemy", VPROF_BUDGETGROUP_UNITS );
-
+	
+	// Update HL2 behavior
+	UpdateHL2Behavior(gpGlobals->frametime);
+	
 	// Supress enemy lost event, so we can choose to only fire the OnNewEnemy event
 	bool bEnemyLost = CheckEnemyLost( true );
 
@@ -1366,3 +1391,106 @@ public:
 	}
 };
 LINK_ENTITY_TO_CLASS( unit_dummy_test, CUnitDummyTest );
+
+//=============================================================================
+// HL2 Style Commands
+//=============================================================================
+
+void CUnitBase::Command_HL2Cover(const CCommand& args)
+{
+	if (m_pHL2Behavior)
+		m_pHL2Behavior->Command_HL2Cover(args);
+}
+
+void CUnitBase::Command_HL2Peek(const CCommand& args)
+{
+	if (m_pHL2Behavior)
+		m_pHL2Behavior->Command_HL2Peek(args);
+}
+
+void CUnitBase::Command_HL2BlindFire(const CCommand& args)
+{
+	if (m_pHL2Behavior)
+		m_pHL2Behavior->Command_HL2BlindFire(args);
+}
+
+void CUnitBase::Command_HL2Flank(const CCommand& args)
+{
+	if (m_pHL2Behavior)
+		m_pHL2Behavior->Command_HL2Flank(args);
+}
+
+void CUnitBase::Command_HL2Suppress(const CCommand& args)
+{
+	if (m_pHL2Behavior)
+		m_pHL2Behavior->Command_HL2Suppress(args);
+}
+
+void CUnitBase::Command_HL2Retreat(const CCommand& args)
+{
+	if (m_pHL2Behavior)
+		m_pHL2Behavior->Command_HL2Retreat(args);
+}
+
+void CUnitBase::Command_HL2Hold(const CCommand& args)
+{
+	if (m_pHL2Behavior)
+		m_pHL2Behavior->Command_HL2Hold(args);
+}
+
+// HL2 Style Commands Registration
+CON_COMMAND_F(rtt_hl2_cover, "Take cover (HL2 style)", FCVAR_CHEAT)
+{
+	CBaseEntity* pPlayer = UTIL_GetCommandClient();
+	CUnitBase* pUnit = dynamic_cast<CUnitBase*>(pPlayer);
+	if (pUnit && pUnit->m_pHL2Behavior)
+		pUnit->m_pHL2Behavior->Command_HL2Cover(args);
+}
+
+CON_COMMAND_F(rtt_hl2_peek, "Peek from cover [left/right]", FCVAR_CHEAT)
+{
+	CBaseEntity* pPlayer = UTIL_GetCommandClient();
+	CUnitBase* pUnit = dynamic_cast<CUnitBase*>(pPlayer);
+	if (pUnit && pUnit->m_pHL2Behavior)
+		pUnit->m_pHL2Behavior->Command_HL2Peek(args);
+}
+
+CON_COMMAND_F(rtt_hl2_blind_fire, "Blind fire from cover", FCVAR_CHEAT)
+{
+	CBaseEntity* pPlayer = UTIL_GetCommandClient();
+	CUnitBase* pUnit = dynamic_cast<CUnitBase*>(pPlayer);
+	if (pUnit && pUnit->m_pHL2Behavior)
+		pUnit->m_pHL2Behavior->Command_HL2BlindFire(args);
+}
+
+CON_COMMAND_F(rtt_hl2_flank, "Flank enemy (HL2 style)", FCVAR_CHEAT)
+{
+	CBaseEntity* pPlayer = UTIL_GetCommandClient();
+	CUnitBase* pUnit = dynamic_cast<CUnitBase*>(pPlayer);
+	if (pUnit && pUnit->m_pHL2Behavior)
+		pUnit->m_pHL2Behavior->Command_HL2Flank(args);
+}
+
+CON_COMMAND_F(rtt_hl2_suppress, "Suppressive fire (HL2 style)", FCVAR_CHEAT)
+{
+	CBaseEntity* pPlayer = UTIL_GetCommandClient();
+	CUnitBase* pUnit = dynamic_cast<CUnitBase*>(pPlayer);
+	if (pUnit && pUnit->m_pHL2Behavior)
+		pUnit->m_pHL2Behavior->Command_HL2Suppress(args);
+}
+
+CON_COMMAND_F(rtt_hl2_retreat, "Tactical retreat (HL2 style)", FCVAR_CHEAT)
+{
+	CBaseEntity* pPlayer = UTIL_GetCommandClient();
+	CUnitBase* pUnit = dynamic_cast<CUnitBase*>(pPlayer);
+	if (pUnit && pUnit->m_pHL2Behavior)
+		pUnit->m_pHL2Behavior->Command_HL2Retreat(args);
+}
+
+CON_COMMAND_F(rtt_hl2_hold, "Hold position (HL2 style)", FCVAR_CHEAT)
+{
+	CBaseEntity* pPlayer = UTIL_GetCommandClient();
+	CUnitBase* pUnit = dynamic_cast<CUnitBase*>(pPlayer);
+	if (pUnit && pUnit->m_pHL2Behavior)
+		pUnit->m_pHL2Behavior->Command_HL2Hold(args);
+}
